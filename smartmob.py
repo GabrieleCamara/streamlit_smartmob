@@ -74,7 +74,7 @@ def func_mdl(slc_mdl):
 		json_mdl = json.dumps(cursor.fetchall())
 		# Tabela com informacoes dos dados do mapa
 		tbl = pd.read_sql_query("SELECT rotas_filtradas.id_rota as id, rotas_filtradas.dia as data FROM rotas_filtradas, modais WHERE rotas_filtradas.modal = modais.modal_id AND modais.nm_modal = '%s'""" %slc_mdl[0], conn)
-		# st.json(json_mdl[2:len(json_mdl)-2])
+		#st.json(json_mdl[2:len(json_mdl)-2])
 		conn.commit()
 		if show_tbls:
 			tbl
@@ -191,21 +191,38 @@ def func_tm(slc_tm):
 				style_function = lambda feature: style_tm_veloc(feature),
 				).add_to(m)
 
-# Função que executa as consultas com relação a data
-def func_date(date_time):
+# Função que executa as consultas por data e modal
+def func_date_mdl(date_time):
 	cursor.execute("""CREATE OR REPLACE VIEW rotas_filtradas_data_selec AS SELECT * FROM rotas_filtradas_data WHERE date = '%s'""" %date_time)
 	cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT gid, modal, date) As l)) As properties FROM rotas_filtradas_data_selec As lg ) As f )  As fc;""")
-	json_date = json.dumps(cursor.fetchall())
+	json_date_list = json.dumps(cursor.fetchall())
 	conn.commit()
-	oi = st.json(json_date[2:len(json_date)-2])
-	# if oi['features'] == 'Null':
-	# 	st.warning('Não há dados registrados nesta data')
-	# else:
-	# 	lyr_date = folium.GeoJson(
-	# 		json_date[2:len(json_date)-2],
-	# 		name = 'Modal por data',
-	# 		style_function = lambda feature: style_mdl(feature),
-	# 		).add_to(m)
+	json_date = json_date_list[2:len(json_date_list)-2]
+	if json.loads(json_date)['features'] is None:
+		st.warning('Não há dados registrados nesta data')
+	else:
+		lyr_date = folium.GeoJson(
+			json_date,
+			name = 'Modal por data',
+			style_function = lambda feature: style_mdl(feature),
+			).add_to(m)
+
+# Função que executa as consultas por data e tema
+def func_date_tm_db(date_time):
+	cursor.execute("""CREATE OR REPLACE VIEW osm_db_data_selec AS SELECT osm_db_rota.*, rotas_filtradas_data.date FROM osm_db_rota, rotas_filtradas_data WHERE osm_db_rota.id_rota = rotas_filtradas_data.id_rota AND rotas_filtradas_data.date = '%s' """ %date_time)
+	cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, db_medio, date) As l)) As properties FROM osm_db_data_selec As lg ) As f )  As fc;""")
+	json_date_list = json.dumps(cursor.fetchall())
+	conn.commit()
+	json_date = json_date_list[2:len(json_date_list)-2]
+	if json.loads(json_date)['features'] is None:
+		pass
+	else:
+		lyr_date = folium.GeoJson(
+			json_date,
+			name = 'Tema ruído sonoro por data',
+			style_function = lambda feature: style_tm_db(feature),
+			show = False,
+			).add_to(m)
 
 # --- CANVAS --- #
 st.title('SmartMobility')
@@ -217,6 +234,9 @@ m = folium.Map(location = [-25.45,-49.26],
 
 # --- SIDEBAR --- #
 st.sidebar.title('Consultas espaciais')
+
+# Checkbox para mostrar dados tabelares
+show_tbls = st.sidebar.checkbox('Mostrar dados tabelares')
 
 # Escolha do tipo de consulta espacial que sera feita nos dados
 cslt_radio = st.sidebar.radio(
@@ -247,13 +267,13 @@ elif cslt_radio == 'Combinada':
 else:
 	st.markdown('Consulta espaciais filtrados por _data_')
 	date_time = st.sidebar.date_input('Filtrar os dados por data', datetime.datetime(2018, 5, 1), datetime.datetime(2018, 5, 1), datetime.datetime(2018,8,1))
-	func_date(date_time)
+	with st.spinner('Consultando o banco de dados, só um instantinho...'):
+		func_date_mdl(date_time)
+		func_date_tm_db(date_time)
 
-
-# Checkbox para mostrar dados tabelares
-show_tbls = st.sidebar.checkbox('Mostrar dados tabelares')
-
-folium.LayerControl().add_to(m)
+folium.LayerControl(
+	collapsed = False,
+).add_to(m)
 folium_static(m)
 
 cursor.close()
