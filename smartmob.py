@@ -191,7 +191,7 @@ def func_tm(slc_tm):
 				style_function = lambda feature: style_tm_veloc(feature),
 				).add_to(m)
 
-# Função que executa as consultas combinadas entre modais e tema
+# Função que executa as consultas COMBINADAS entre modais e tema
 def func_mdl_tm(slc_mdl, slc_tm):
 	if slc_tm == 'Ruído Sonoro':
 		with st.spinner('Consultando o banco de dados, só um instantinho...'):
@@ -329,3 +329,7 @@ conn.close()
 # st.sidebar.slider("Teste", 0, 25, [10, 20])
 # Consulta media veloc por hora
 # tbl = pd.read_sql_query("SELECT time AS Hora, AVG(veloc_medio) AS Velocidade_Media FROM osm_veloc_data_selec WHERE date = '%s' GROUP BY time """ %date_time, conn)
+# Tentativa
+# cursor.execute("""CREATE OR REPLACE VIEW text_veloc_medio AS SELECT AVG(veloc_medio) FROM osm_veloc_modal, modais WHERE osm_veloc_modal.modal_id = modais.modal_id AND modais.nm_modal = '%s' GROUP BY nm_modal""" %slc_mdl)
+# query = cursor.fetchall()
+# st.success('O ruído sonoro médio do modal %s em decibéis é %s' %(slc_mdl, query[0][0]))
