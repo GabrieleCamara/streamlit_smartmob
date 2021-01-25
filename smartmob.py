@@ -8,7 +8,6 @@ import folium
 import json
 import time
 import datetime
-import matplotlib.pyplot as plot
 
 st.set_page_config(
 	page_title = "Smart Mobility",
@@ -192,6 +191,31 @@ def func_tm(slc_tm):
 				style_function = lambda feature: style_tm_veloc(feature),
 				).add_to(m)
 
+# Função que executa as consultas combinadas entre modais e tema
+def func_mdl_tm(slc_mdl, slc_tm):
+	if slc_tm == 'Ruído Sonoro':
+		with st.spinner('Consultando o banco de dados, só um instantinho...'):
+			cursor.execute("""CREATE OR REPLACE VIEW osm_db_modal AS SELECT osm_db_rota.* FROM osm_db_rota, rota_modal, modais WHERE osm_db_rota.id_rota = rota_modal.id_rota AND rota_modal.modal = modais.modal_id AND modais.nm_modal = '%s';""" %slc_mdl)
+			cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, db_medio) As l)) As properties FROM osm_db_modal As lg ) As f )  As fc;""")
+			json_line_cbn = json.dumps(cursor.fetchall())
+			conn.commit()
+			lyr_line_cbn = folium.GeoJson(
+				json_line_cbn[2:len(json_line_cbn)-2],
+				name = 'Modais por tema ruído sonoro',
+				style_function = lambda feature: style_tm_db(feature),
+				).add_to(m)
+	else:
+		with st.spinner('Consultando o banco de dados, só um instantinho...'):
+			cursor.execute("""CREATE OR REPLACE VIEW osm_veloc_modal AS SELECT osm_veloc_rota.* FROM osm_veloc_rota, rota_modal, modais WHERE osm_veloc_rota.id_rota = rota_modal.id_rota AND rota_modal.modal = modais.modal_id AND modais.nm_modal = '%s';""" %slc_mdl)
+			cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, veloc_medio) As l)) As properties FROM osm_veloc_modal As lg ) As f )  As fc;""")
+			json_line_cbn = json.dumps(cursor.fetchall())
+			conn.commit()
+			lyr_line_cbn = folium.GeoJson(
+				json_line_cbn[2:len(json_line_cbn)-2],
+				name = 'Modais por tema velocidade',
+				style_function = lambda feature: style_tm_veloc(feature),
+				).add_to(m)
+
 # Função que executa as consultas por data e modal
 def func_date_mdl(date_time):
 	cursor.execute("""CREATE OR REPLACE VIEW rotas_filtradas_data_selec AS SELECT * FROM rotas_filtradas_data WHERE date = '%s'""" %date_time)
@@ -271,17 +295,20 @@ if cslt_radio == 'Individual':
 
 	# Escolha dos tema dos mapas
 	slc_tm = st.sidebar.selectbox('Tema', ('Nenhum', 'Ruído Sonoro', 'Velocidade'))
+	
+	# Executando as funções com os parâmetros escolhidos acima
 	func_mdl(slc_mdl)
 	func_tm(slc_tm)
 elif cslt_radio == 'Combinada':
 	st.markdown('Consultas espaciais _combinadas_ entre os dados classificados por **modais e temas**')
 	# Escolha dos modais
-	slc_mdl = st.sidebar.multiselect(
-		'Modais',
-		lista_modal())
+	slc_mdl = st.sidebar.selectbox('Modais', lista_modal())
 
 	# Escolha dos tema dos mapas
-	slc_tm = st.sidebar.selectbox('Tema', ('Nenhum', 'Ruído Sonoro', 'Velocidade'))
+	slc_tm = st.sidebar.selectbox('Tema', ('Ruído Sonoro', 'Velocidade'))
+	
+	# Executando as funções com os parâmetros escolhidos acima
+	func_mdl_tm(slc_mdl, slc_tm)
 else:
 	st.markdown('Consulta espaciais filtrados por _data_')
 	date_time = st.sidebar.date_input('Filtrar os dados por data', datetime.datetime(2018, 5, 1), datetime.datetime(2018, 5, 1), datetime.datetime(2018,8,1))
