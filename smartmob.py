@@ -8,6 +8,7 @@ import folium
 import json
 import time
 import datetime
+import matplotlib.pyplot as plot
 
 st.set_page_config(
 	page_title = "Smart Mobility",
@@ -207,7 +208,7 @@ def func_date_mdl(date_time):
 			style_function = lambda feature: style_mdl(feature),
 			).add_to(m)
 
-# Função que executa as consultas por data e tema
+# Função que executa as consultas por data e tema (db)
 def func_date_tm_db(date_time):
 	cursor.execute("""CREATE OR REPLACE VIEW osm_db_data_selec AS SELECT osm_db_rota.*, rotas_filtradas_data.date FROM osm_db_rota, rotas_filtradas_data WHERE osm_db_rota.id_rota = rotas_filtradas_data.id_rota AND rotas_filtradas_data.date = '%s' """ %date_time)
 	cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, db_medio, date) As l)) As properties FROM osm_db_data_selec As lg ) As f )  As fc;""")
@@ -221,6 +222,23 @@ def func_date_tm_db(date_time):
 			json_date,
 			name = 'Tema ruído sonoro por data',
 			style_function = lambda feature: style_tm_db(feature),
+			show = False,
+			).add_to(m)
+
+# Função que executa as consultas por data e tema (veloc)
+def func_date_tm_veloc(date_time):
+	cursor.execute("""CREATE OR REPLACE VIEW osm_veloc_data_selec AS SELECT osm_veloc_rota.*, rotas_filtradas_data.date, rotas_filtradas_data.time FROM osm_veloc_rota, rotas_filtradas_data WHERE osm_veloc_rota.id_rota = rotas_filtradas_data.id_rota AND rotas_filtradas_data.date = '%s' """ %date_time)
+	cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, veloc_medio, date, time) As l)) As properties FROM osm_veloc_data_selec As lg ) As f )  As fc;""")
+	json_date_list = json.dumps(cursor.fetchall())
+	conn.commit()
+	json_date = json_date_list[2:len(json_date_list)-2]
+	if json.loads(json_date)['features'] is None:
+		pass
+	else:
+		lyr_date = folium.GeoJson(
+			json_date,
+			name = 'Tema velocidade por data',
+			style_function = lambda feature: style_tm_veloc(feature),
 			show = False,
 			).add_to(m)
 
@@ -270,6 +288,7 @@ else:
 	with st.spinner('Consultando o banco de dados, só um instantinho...'):
 		func_date_mdl(date_time)
 		func_date_tm_db(date_time)
+		func_date_tm_veloc(date_time)
 
 folium.LayerControl(
 	collapsed = False,
@@ -281,3 +300,5 @@ conn.close()
 
 # Slider que duplo
 # st.sidebar.slider("Teste", 0, 25, [10, 20])
+# Consulta media veloc por hora
+# tbl = pd.read_sql_query("SELECT time AS Hora, AVG(veloc_medio) AS Velocidade_Media FROM osm_veloc_data_selec WHERE date = '%s' GROUP BY time """ %date_time, conn)
