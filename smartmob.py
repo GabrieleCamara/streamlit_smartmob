@@ -195,7 +195,7 @@ def func_tm(slc_tm):
 def func_mdl_tm(slc_mdl, slc_tm):
 	if slc_tm == 'Ruído Sonoro':
 		with st.spinner('Consultando o banco de dados, só um instantinho...'):
-			cursor.execute("""CREATE OR REPLACE VIEW osm_db_modal AS SELECT osm_db_rota.* FROM osm_db_rota, rota_modal, modais WHERE osm_db_rota.id_rota = rota_modal.id_rota AND rota_modal.modal = modais.modal_id AND modais.nm_modal = '%s';""" %slc_mdl)
+			cursor.execute("""CREATE OR REPLACE VIEW osm_db_modal AS SELECT osm_db_rota.*, modais.modal_id FROM osm_db_rota, rota_modal, modais WHERE osm_db_rota.id_rota = rota_modal.id_rota AND rota_modal.modal = modais.modal_id AND modais.nm_modal = '%s';""" %slc_mdl)
 			cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, db_medio) As l)) As properties FROM osm_db_modal As lg ) As f )  As fc;""")
 			json_line_cbn = json.dumps(cursor.fetchall())
 			conn.commit()
@@ -206,7 +206,7 @@ def func_mdl_tm(slc_mdl, slc_tm):
 				).add_to(m)
 	else:
 		with st.spinner('Consultando o banco de dados, só um instantinho...'):
-			cursor.execute("""CREATE OR REPLACE VIEW osm_veloc_modal AS SELECT osm_veloc_rota.* FROM osm_veloc_rota, rota_modal, modais WHERE osm_veloc_rota.id_rota = rota_modal.id_rota AND rota_modal.modal = modais.modal_id AND modais.nm_modal = '%s';""" %slc_mdl)
+			cursor.execute("""CREATE OR REPLACE VIEW osm_veloc_modal AS SELECT osm_veloc_rota.*, modais.modal_id FROM osm_veloc_rota, rota_modal, modais WHERE osm_veloc_rota.id_rota = rota_modal.id_rota AND rota_modal.modal = modais.modal_id AND modais.nm_modal = '%s';""" %slc_mdl)
 			cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, veloc_medio) As l)) As properties FROM osm_veloc_modal As lg ) As f )  As fc;""")
 			json_line_cbn = json.dumps(cursor.fetchall())
 			conn.commit()
