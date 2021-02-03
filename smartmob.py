@@ -165,9 +165,11 @@ def func_tm(slc_tm):
 			cursor.execute("""CREATE OR REPLACE VIEW osm_db_rota AS SELECT row_number() OVER (PARTITION BY true) as id, osm_db.osm_id, ponto_rua.id_rota, osm_db.geom, osm_db.db_medio FROM osm_db, ponto_rua WHERE ponto_rua.osm_id = osm_db.gid;""")
 			cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, db_medio) As l)) As properties FROM osm_db_rota As lg ) As f )  As fc;""")
 			json_line_tm = json.dumps(cursor.fetchall())
-			# data_chart = pd.read_sql_query("SELECT id_rota, sum(db_medio) FROM osm_db_rota GROUP BY id_rota", conn)
+			data_chart = pd.read_sql_query("SELECT id_rota, sum(db_medio) FROM osm_db_rota GROUP BY id_rota", conn)
 			conn.commit()
-			# st.bar_chart(data_chart)
+			if show_tbls:
+				st.text('Média de ruído sonoro em decibéis agrupado por id_rota')
+				st.bar_chart(data_chart)
 			# --- Para cada ponto carrega um marker = demora muito --- #
 			lyr_line_tm = folium.GeoJson(
 				json_line_tm[2:len(json_line_tm)-2],
@@ -181,10 +183,11 @@ def func_tm(slc_tm):
 			cursor.execute("""CREATE OR REPLACE VIEW osm_veloc_rota AS SELECT row_number() OVER (PARTITION BY true) as id, osm_veloc.osm_id, ponto_rua_veloc.id_rota, osm_veloc.geom, osm_veloc.veloc_medio FROM osm_veloc, ponto_rua_veloc WHERE ponto_rua_veloc.osm_id = osm_veloc.gid;""")
 			cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, veloc_medio) As l)) As properties FROM osm_veloc_rota As lg ) As f )  As fc;""")
 			json_line_tm = json.dumps(cursor.fetchall())
-			# data_chart = pd.read_sql_query("SELECT id_rota, sum(veloc_medio) FROM osm_veloc_rota GROUP BY id_rota", conn)
+			data_chart = pd.read_sql_query("SELECT id_rota, sum(veloc_medio) FROM osm_veloc_rota GROUP BY id_rota", conn)
 			conn.commit()
-			# st.info('Velocidade média por rotas')
-			# st.bar_chart(data_chart)
+			if show_tbls:
+				st.text('Velocidade média em km/h agrupado por id_rota')
+				st.bar_chart(data_chart)
 			lyr_line_tm = folium.GeoJson(
 				json_line_tm[2:len(json_line_tm)-2],
 				name = 'Tema ruído Linha',
@@ -199,6 +202,9 @@ def func_mdl_tm(slc_mdl, slc_tm):
 			cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, db_medio) As l)) As properties FROM osm_db_modal As lg ) As f )  As fc;""")
 			json_line_cbn = json.dumps(cursor.fetchall())
 			conn.commit()
+			st.success('Modal %s classificado de acordo com o tema Ruído Sonoro' %slc_mdl)
+			if show_tbls:
+				st.error('Tabelas e gráficos em desenvolvimento para está consulta')
 			lyr_line_cbn = folium.GeoJson(
 				json_line_cbn[2:len(json_line_cbn)-2],
 				name = 'Modais por tema ruído sonoro',
@@ -210,6 +216,9 @@ def func_mdl_tm(slc_mdl, slc_tm):
 			cursor.execute("""SELECT row_to_json(fc) FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features FROM (SELECT 'Feature' As type, ST_AsGeoJSON(lg.geom)::json As geometry, row_to_json((SELECT l FROM (SELECT id, veloc_medio) As l)) As properties FROM osm_veloc_modal As lg ) As f )  As fc;""")
 			json_line_cbn = json.dumps(cursor.fetchall())
 			conn.commit()
+			st.success('Modal %s classificado de acordo com a velocidade média' %slc_mdl)
+			if show_tbls:
+				st.error('Tabelas e gráficos em desenvolvimento para está consulta')
 			lyr_line_cbn = folium.GeoJson(
 				json_line_cbn[2:len(json_line_cbn)-2],
 				name = 'Modais por tema velocidade',
@@ -278,7 +287,7 @@ m = folium.Map(location = [-25.45,-49.26],
 st.sidebar.title('Consultas espaciais')
 
 # Checkbox para mostrar dados tabelares
-show_tbls = st.sidebar.checkbox('Mostrar dados tabelares')
+show_tbls = st.sidebar.checkbox('Mostrar dados tabelares e gráficos')
 
 # Escolha do tipo de consulta espacial que sera feita nos dados
 cslt_radio = st.sidebar.radio(
@@ -316,6 +325,8 @@ else:
 		func_date_mdl(date_time)
 		func_date_tm_db(date_time)
 		func_date_tm_veloc(date_time)
+		if show_tbls:
+			st.error('Tabelas e gráficos em desenvolvimento para está consulta')
 
 folium.LayerControl(
 	collapsed = False,
