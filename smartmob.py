@@ -15,7 +15,7 @@ st.set_page_config(
 
 # --- CONEXAO com banco de dados --- #
 try:
-    conn = psycopg2.connect("dbname = 'smartmob' port = '' user= '' password = '' host='' " )
+    conn = psycopg2.connect(**st.secrets["postgres"])
     cursor = conn.cursor()
     conec = 'Conexao ao banco de dados realizada com sucesso'
 except:
